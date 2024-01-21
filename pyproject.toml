@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "nautobot-network-discovery"
+version = "0.1.0"
+description = ""
+authors = ["Raphael NUYTTENS <raphael.nuyttens@gmail.com>"]
+readme = "README.md"
+keywords = ["nautobot", "nautobot-plugin"]
+include = [
+    "README.md",
+]
+packages = [
+    { include = "nautobot_network_discovery" },
+]
+
+
+[tool.poetry.dependencies]
+python = ">=3.8,<3.12"
+netmiko = ">=4.0.0"
+ntc-templates = ">=4.0.0"
+nautobot = ">=2.0.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

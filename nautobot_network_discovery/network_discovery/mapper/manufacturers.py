@@ -1,0 +1,18 @@
+MANUFACTURER_MAP_DICT = {
+            ".*alcatel.*": "Alcatel-Lucent",
+            ".*allied.*":  "Allied Telesis",
+            ".*arista.*": "Arista",
+            ".*aruba.*": "Aruba",
+            ".*axis.*":"Axis",
+            ".*checkpoint.*": "Check Point",
+            ".*cisco.*": "Cisco",
+            ".*dell.*": "Dell",
+            ".*fortinet.*": "Fortinet",
+            ".*hanwha.*": "Hanwha",
+            ".*hpe.*": "HPE",    
+            ".*huawei.*": "Huawei",            
+            ".*juniper.*": "Juniper",
+            ".*paloalto.*": "Palo Alto",
+            ".*palo alto.*": "Palo Alto",
+            ".*vmware.*": "VMWare",
+}
