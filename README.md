@@ -16,7 +16,7 @@ Experimental/Incomplete Vendor:
 
 
 For install:
- - pip install git+https://
+ - pip install git+https://github.com/rnuyttens/nautobot-plugin-network-discovery.git
 
 Configuration in nautobot_config.py
 
