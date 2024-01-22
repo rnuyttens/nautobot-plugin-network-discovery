@@ -1,6 +1,6 @@
 It's a Nautobot jobs for network discovery
 
-To Do :
+For the future:
  - add more logging
  - Comment 
  - Documentation
