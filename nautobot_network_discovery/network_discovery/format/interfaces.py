@@ -102,6 +102,7 @@ def run(interfaces):
             if interface.get('mode') is not None and interface.get("mode") != "":
                 if interface.get("mode") == "trunk" and interface.get('trunking_vlans') == ["ALL"]:
                     interface["mode"] = "tagged-all"
+                    interface.pop('trunking_vlans')
                 elif interface.get("mode") == "trunk":
                     interface['mode'] = "tagged"
                     if interface.get("trunking_vlans") is not None and interface.get('trunking_vlans') != ["ALL"] and len(interface.get('trunking_vlans')) >0:
