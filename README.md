@@ -1,3 +1,4 @@
+
 # [nautobot-plugin-network-discovery]
  
 It's a Nautobot jobs for network discovery
@@ -29,8 +30,8 @@ It's a Nautobot jobs for network discovery
 
 ```json
 PLUGINS = ["nautobot_network_discovery"]
+```
 -   Optionnal:
- 
 ```json
 PLUGINS_CONFIG = {
   "nautobot_network_discovery": {
