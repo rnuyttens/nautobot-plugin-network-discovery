@@ -1,18 +1,29 @@
 """Network Discovery Jobs."""
-from threading import Lock,Thread
 from queue import LifoQueue
+from threading import Lock, Thread
+
 from django.conf import settings
-from nautobot.apps.jobs import Job, ObjectVar, IntegerVar, StringVar, BooleanVar, ChoiceVar
+from nautobot.apps.jobs import (
+    BooleanVar,
+    ChoiceVar,
+    IntegerVar,
+    Job,
+    ObjectVar,
+    StringVar,
+)
 from nautobot.core.celery import register_jobs
-from nautobot.dcim.models import Location, DeviceType, Platform
+from nautobot.dcim.models import DeviceType, Location, Platform
+from nautobot.extras.choices import (
+    SecretsGroupAccessTypeChoices,
+    SecretsGroupSecretTypeChoices,
+)
 from nautobot.extras.models import Role, SecretsGroup, SecretsGroupAssociation
-from nautobot.extras.choices import SecretsGroupAccessTypeChoices, SecretsGroupSecretTypeChoices
 
 from nautobot_network_discovery.exceptions import OnboardException
 from nautobot_network_discovery.helpers import onboarding_task_fqdn_to_ip
+from nautobot_network_discovery.network_discovery.collector import discovery_devices
 from nautobot_network_discovery.network_discovery.device import DeviceDiscovery
 from nautobot_network_discovery.network_discovery.neighbors import NeighborsDiscovery
-from nautobot_network_discovery.network_discovery.collector import discovery_devices
 
 PLUGIN_SETTINGS = settings.PLUGINS_CONFIG["nautobot_network_discovery"]
 

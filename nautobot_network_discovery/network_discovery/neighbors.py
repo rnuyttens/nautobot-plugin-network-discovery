@@ -1,13 +1,18 @@
 import re
 from importlib import import_module
+from multiprocessing.pool import ThreadPool
 from queue import LifoQueue
 from threading import Lock
-from multiprocessing.pool import ThreadPool
 
 from nautobot_network_discovery.network_discovery.device import DeviceDiscovery
-from nautobot_network_discovery.network_discovery.mapper.lldp_mapper import LLDP_MAPPER_DICT
+from nautobot_network_discovery.network_discovery.format.manufacturers import (
+    manufacturer,
+)
 from nautobot_network_discovery.network_discovery.format.role import role
-from nautobot_network_discovery.network_discovery.format.manufacturers import manufacturer
+from nautobot_network_discovery.network_discovery.mapper.lldp_mapper import (
+    LLDP_MAPPER_DICT,
+)
+
 
 def lldp_autodetect(lldp_data:dict) -> str:
     """

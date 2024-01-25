@@ -1,6 +1,10 @@
 """information_extract.py"""
 import re
-from nautobot_network_discovery.network_discovery.mapper.manufacturers import MANUFACTURER_MAP_DICT
+
+from nautobot_network_discovery.network_discovery.mapper.manufacturers import (
+    MANUFACTURER_MAP_DICT,
+)
+
 
 def manufacturer(data=None,platform=None):
     """
