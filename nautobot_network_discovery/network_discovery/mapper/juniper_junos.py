@@ -45,8 +45,6 @@ MAPPING_VALUES = {
 
 
 COMMANDS = {
-    "interface": "show interfaces"
-    "version": "show version",
-
-
+    "interface": "show interfaces",
+    "version": "show version"
 }
