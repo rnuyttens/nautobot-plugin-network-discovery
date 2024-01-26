@@ -307,13 +307,22 @@ class NautobotPublish:
                         if interf.get('mode') is not None:
                             defaults['mode'] = interf.get('mode') 
 
-                        if interf.get('mode') == "access" and hasattr(device, "vlans"):
-                            defaults['untagged_vlan'] = interf.get('untagged_vlan')
+                        if (interf.get('mode') == "access" and hasattr(device, "vlans") and 
+                            interf.get('untagged_vlan') is not None and 
+                            interf.get('untagged_vlan') != ""):
+
+                            for vlan in device.vlans:
+                                if vlan.vid == int(interf.get('untagged_vlan')): 
+                                    defaults['untagged_vlan']=vlan
+                                    break                               
+                            
 
                         elif interf.get('mode') == "tagged":
                             if interf.get('untagged_vlan') is not None and interf.get('untagged_vlan') != "" and isinstance(interf.get('untagged_vlan'),VLAN):
-                                defaults['untagged_vlan'] = interf.get('untagged_vlan')
-                                
+                                for vlan in device.vlans:
+                                    if vlan.vid == int(interf.get('untagged_vlan')): 
+                                        defaults['untagged_vlan']=vlan
+                                        break     
 
                         elif interf.get('mode') == "tagged-all":
                             if interf.get('untagged_vlan') is not None and isinstance(interf.get('untagged_vlan'),VLAN):
@@ -327,16 +336,22 @@ class NautobotPublish:
                         if interface is not None:
                             if interf.get('mode') == "tagged" and len(interf.get('tagged_vlans')) >0:
                                 #interface.mode="tagged"
-                                for vl in interf.get('tagged_vlans'):
-                                    if vl not in interface.tagged_vlans.all():
-                                        interface.tagged_vlans.add(vl)
-
+                                tagged_vlans=[]
+                                for vl in interf['tagged_vlans']:
+                                    for vlan in device.vlans:
+                                        if vlan.vid == int(vl) and vlan not in tagged_vlans: 
+                                            tagged_vlans.append(vlan)
+                                            break
+                                if len(tagged_vlans):
+                                    for vl in tagged_vlans:
+                                        if vl not in interface.tagged_vlans.all():
+                                            interface.tagged_vlans.add(vl)
                                 if len(interface.tagged_vlans.all())>0:    
                                     for vl in interface.tagged_vlans.all():
-                                        if vl not in interf.get('tagged_vlans'):
+                                        if vl not in tagged_vlans:
                                             interface.tagged_vlans.remove(vl)
                                 interface.full_clean()
-                                interface.save()                                                            
+                                interface.save()                                                              
 
                             if interf.get('ip_address') is not None and interf.get('ip_address') != "" :
                                 interface.ip_addresses.add(interf.get('ip_address'))
@@ -365,13 +380,6 @@ class NautobotPublish:
                                 interface.full_clean()
                                 interface.save()
 
-                            """if interf.get('vip') is not None and interf.get('vip') != "":
-                                if len(interface.ip_addresses.all()) > 0:
-                                    for i in interface.ip_addresses.all():
-                                        if i != interf.get('vip'):
-                                            i.delete()
-                                    interface.save()"""
-
 
 
                             if interf.get('vrf') is not None and interf.get('vrf') != "":
@@ -393,7 +401,7 @@ class NautobotPublish:
                 # TODO: Add option for default interface status
                 for vlan in device.nautobot_serialize().get('vlans'):
                     try:
-                        vl, _ = VLAN.objects.get_or_create(
+                        vl, create = VLAN.objects.get_or_create(
                             name=vlan.get('name'),
                             defaults={
                                         "vid": vlan.get('vid') , 
@@ -401,27 +409,12 @@ class NautobotPublish:
                                         "status": Status.objects.get(name="Active"),
                                     },
                         )
-                        vlans.append(vl)
+                        if vl not in vlans:
+                            vlans.append(vl)
                     except Exception as exc:
                         print(exc)
                 device.add_property(vlans=vlans)
-
-                if (device.nautobot_serialize().get('interfaces') is not None ):
-                    for interf in device.interfaces:
-                        if interf.get('tagged_vlans') is not None and interf.get('tagged_vlans') != "" and interf.get('mode') == "tagged" :
-                            tagged_vlans=[]
-                            for vl in interf['tagged_vlans']:
-                                for vlan in vlans:
-                                    if vlan.vid == int(vl) and vlan not in tagged_vlans: 
-                                        tagged_vlans.append(vlan)
-                                        break
-                            interf['tagged_vlans'] = tagged_vlans
-
-                        if interf.get('untagged_vlan') is not None and interf.get('untagged_vlan') != "":                    
-                            for vlan in vlans:
-                                if vlan.vid == int(interf.get('untagged_vlan')): 
-                                    interf['untagged_vlan']=vlan
-                                    break                       
+             
                 
 
     def ensure_vrf(self):
