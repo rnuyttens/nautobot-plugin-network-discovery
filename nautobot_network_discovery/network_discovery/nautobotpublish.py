@@ -1,16 +1,28 @@
-import logging
 import ipaddress
+import logging
 import random
+
 from django.conf import settings
-from django.core.exceptions import ValidationError
 from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import ValidationError
 from nautobot.apps.choices import PrefixTypeChoices
-from nautobot.dcim.models import Manufacturer, Device, Interface, DeviceType
-from nautobot.extras.models import Role,SecretsGroup,RelationshipAssociation,Relationship
-from nautobot.dcim.models import Platform
-from nautobot.dcim.models import Location
-from nautobot.extras.models import Status
-from nautobot.ipam.models import IPAddress, Prefix, Namespace, VLAN, VRF
+from nautobot.dcim.models import (
+    Device,
+    DeviceType,
+    Interface,
+    Location,
+    Manufacturer,
+    Platform,
+)
+from nautobot.extras.models import (
+    Relationship,
+    RelationshipAssociation,
+    Role,
+    SecretsGroup,
+    Status,
+)
+from nautobot.ipam.models import VLAN, VRF, IPAddress, Namespace, Prefix
+
 from nautobot_network_discovery.exceptions import OnboardException
 
 if "nautobot_device_lifecycle_mgmt" in settings.PLUGINS:

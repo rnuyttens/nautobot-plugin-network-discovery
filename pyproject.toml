@@ -19,6 +19,10 @@ netmiko = ">=4.0.0"
 ntc-templates = ">=4.0.0"
 nautobot = ">=2.0.0"
 
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.1.14"
+pytest = "^7.4.4"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

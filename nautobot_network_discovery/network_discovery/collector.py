@@ -1,11 +1,12 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from queue import LifoQueue
 from importlib import import_module
+from queue import LifoQueue
 
 from nautobot_network_discovery.network_discovery.device import DeviceDiscovery
+from nautobot_network_discovery.network_discovery.format.interfaces import (
+    default_interface,
+)
 from nautobot_network_discovery.network_discovery.nautobotpublish import NautobotPublish
-from nautobot_network_discovery.network_discovery.format.interfaces import default_interface
-
 
 
 def format_cmd_result(data:dict,cmd_name:str,cmd_result:list,mapper) -> dict:
