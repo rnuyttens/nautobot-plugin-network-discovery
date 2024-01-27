@@ -33,6 +33,7 @@ class NautobotNetworkDiscoveryConfig(NautobotAppConfig):
         "skip_device_type_on_update": False,
         "skip_manufacturer_on_update": False,
         "update_device_type_if_device_exist":False, 
+        "update_role_if_device_exist" : False,
         "override_network_driver": {
                 "aruba_procurve" : "hp_procurve"
             },
