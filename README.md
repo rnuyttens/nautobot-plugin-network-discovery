@@ -78,10 +78,10 @@ PLUGINS_CONFIG = {
 	},
 	"object_match_strategy": "loose",
 	"deny_role_scan": [
-						"Access Point",
-						"Camera",
-						"Phone"
-					],
+		"Access Point",
+		"Camera",
+		"Phone"
+		],
 	}, 
 }
 ```
