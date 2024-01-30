@@ -96,6 +96,9 @@ class DeviceDiscovery:
                 self.commands = cmd.COMMANDS
                 self.remote_session = ConnectHandler(**ssh_profile)
                 self.remote_session.enable()
+                if self.platform == "fortinet" and self.remote_session._vdoms is True:
+                    self.remote_session._config_global()
+
                 self.remote_session.session_timeout=int(os.getenv('SSH_SESSION_TIMEOUT',"60"))
                 self.remote_session.timeout=int(os.getenv('SSH_TIMEOUT',"30"))
                 self.remote_session.ansi_escape_codes = True

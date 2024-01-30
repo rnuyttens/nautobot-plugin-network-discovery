@@ -90,6 +90,7 @@ class NetworkDiscoveryTask(Job):  # pylint: disable=too-many-instance-attributes
         description = "Login to a device(s) and populate Nautobot Device object(s)."
         has_sensitive_variables = False
         soft_time_limit = 600
+        time_limit= 800
 
     def __init__(self, *args, **kwargs):
         """Overload init to instantiate class attributes per W0201."""

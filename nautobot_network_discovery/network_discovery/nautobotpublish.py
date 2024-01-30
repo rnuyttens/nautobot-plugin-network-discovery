@@ -538,16 +538,17 @@ class NautobotPublish:
                                 if len(pref.subnets()) == 0:
                                     nautobot_prefix =pref
                                     break
+                                    
                         else:
-                            prefix = ipaddress.ip_interface(interf.get('ip_address'))
+                            pref = ipaddress.ip_interface(interf.get('ip_address'))
                             nautobot_prefix, _ = Prefix.objects.get_or_create(
-                                prefix=f"{prefix.network}",
+                                prefix=f"{pref.network}",
                                 namespace=namespace,
                                 type=PrefixTypeChoices.TYPE_NETWORK,
                                 defaults={"status": ip_status},
                                 )
-
-                    try:
+                           
+                        try:
                             defaults = {"status": ip_status,
                                            "type": "host"}
                             address, created = IPAddress.objects.get_or_create(
@@ -555,14 +556,13 @@ class NautobotPublish:
                                 parent=nautobot_prefix,
                                 defaults=defaults,
                                 )
-                            
                             interf["ip_address"] = address
-                    except Exception as exc:
-                        interf.pop("ip_address")
-                        print(f"{device.device.name} : {interf.get('ip_address')} : {exc}")          
+                        except Exception as exc:
+                            print(f"{exc}")
+                            interf.pop("ip_address")
                     interfaces.append(interf)
                 device.interfaces = interfaces
-
+                                                
     def ensure_version(self):
         if SoftwareLCM is not None:
             relationship=Relationship.objects.get(key='device_soft')

@@ -77,10 +77,13 @@ def run(interfaces):
             if interface.get("ip_address") is not None and interface.get("ip_address") != "" and interface.get("prefix_length") is not None and interface.get("prefix_length") !="":
                 ip = f'{interface.get("ip_address")}/{interface.get("prefix_length")}'
                 interface['ip_address'] = ip
-            if interface.get("link_status") is not None and interface.get("link_status") != "":
-                if interface.get("link_status") == 'up':
+            if interface.get("ip_address") is not None and interface.get("ip_address") != "" and interface.get("netmask") is not None and interface.get("netmask") !="":
+                ip = f'{interface.get("ip_address")}/{interface.get("netmask")}'
+                interface['ip_address'] = ip   
+
+            if interface.get("link_status") is not None and interface.get("link_status") != "" or (interface.get("status") is not None and interface.get("status") != "") :
+                if interface.get("link_status") == 'up' or interface.get("status") == "up":
                     interface['link_status'] = True
-                    
                 else:
                     interface['link_status'] = False
 
