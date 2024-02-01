@@ -59,6 +59,7 @@ class NeighborsDiscovery:
         self.queue = queue
         self.start_collect([device])
         lock.release()
+        logger.info(f"{len(self.hostnames)} devices found on the network")
 
     def start_collect(self,devices:list):
         while len(devices)>0:
@@ -75,7 +76,6 @@ class NeighborsDiscovery:
                 devices= results 
             else:
                 devices = []
-        print(f"total ip: {len(self.ips)}")
 
     def collect(self,device:DeviceDiscovery) -> list:
         collect_device = []
