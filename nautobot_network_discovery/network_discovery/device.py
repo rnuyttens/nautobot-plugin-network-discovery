@@ -1,11 +1,18 @@
-"""data_extract.py"""
+"""device.py"""
 import logging
 import os
 from importlib import import_module
 
 from django.conf import settings
-from netmiko import ConnectHandler, NetmikoAuthenticationException, SSHDetect
-from paramiko.ssh_exception import AuthenticationException, SSHException
+from netmiko import (
+    ConnectHandler, 
+    NetmikoAuthenticationException, 
+    SSHDetect
+)
+from paramiko.ssh_exception import (
+    AuthenticationException, 
+    SSHException
+)
 
 PLUGIN_SETTINGS = settings.PLUGINS_CONFIG["nautobot_network_discovery"]
 

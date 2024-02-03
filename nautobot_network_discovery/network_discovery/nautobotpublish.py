@@ -21,7 +21,14 @@ from nautobot.extras.models import (
     SecretsGroup,
     Status,
 )
-from nautobot.ipam.models import VLAN, VRF, IPAddress, Namespace, Prefix
+from nautobot.ipam.models import (
+    VLAN, 
+    VRF, 
+    IPAddress, 
+    Namespace, 
+    Prefix
+)
+
 
 from nautobot_network_discovery.exceptions import OnboardException
 
@@ -393,6 +400,32 @@ class NautobotPublish:
                             vlans.append(vl)
                     except Exception as exc:
                         print(exc)
+
+                if len(vlans)>0:
+                    try:
+                        relationship=Relationship.objects.get(key='vlan')
+                    except:
+                        relationship=None
+                    if relationship is None:
+                        for vl in vlans:
+                            presence=False
+                            for vlan in RelationshipAssociation.objects.all():
+                                if vlan.relationship.key == "vlan":
+                                    if vlan.destination == device.device and vlan.source == vl:
+                                        presence = True
+                                        break
+                            if presence is False :
+                                asso = RelationshipAssociation.objects.create(
+                                                                                relationship=relationship,
+                                                                                source=vl,
+                                                                                destination=device.device
+                                                                            )
+                        
+                        for vlan in RelationshipAssociation.objects.all():
+                            if vlan.relationship.key == "vlan":
+                                if vlan.destination == device.device and vlan.source not in vlans:
+                                    vlan.delete()
+
                 device.add_property(vlans=vlans)
              
                 
@@ -444,12 +477,12 @@ class NautobotPublish:
                 f"fail-general - ERROR could not find existing IP Address status: {default_status_name}",
             ) from err
         for device in self.devices_list:
-            if (device.remote_session is not None and device.nautobot_serialize().get('interfaces') is not None ) :
+            if ( device.nautobot_serialize().get('interfaces') is not None ) :
                 interfaces=[]
                 # TODO: Add option for default interface status
                 for interf in device.nautobot_serialize().get('interfaces'):
                     try:
-                        if interf.get('ip_address') is not None and interf.get('ip_address') !="":
+                        if device.remote_session is not None and interf.get('ip_address') is not None and interf.get('ip_address') !="":
                             prefix = ipaddress.ip_interface(interf.get('ip_address'))
                             nautobot_prefix, _ = Prefix.objects.get_or_create(
                                 prefix=f"{prefix.network}",
@@ -467,8 +500,8 @@ class NautobotPublish:
                             
                             interf["ip_address"] = address
                     except Exception as exc:
-                        interf.pop("ip_address")
                         print(f"{device.device.name} : {interf.get('ip_address')} : {exc}")
+                        interf.pop("ip_address")
                     try:
                         if interf.get('vip') is not None and interf.get('vip') !="":
                             prefix = ipaddress.ip_interface(interf.get('vip'))
@@ -517,21 +550,26 @@ class NautobotPublish:
                                 type=PrefixTypeChoices.TYPE_NETWORK,
                                 defaults={"status": ip_status},
                                 )
-                        try:
-                            defaults = {"status": ip_status,
-                                           "type": "host"}
-                            address, created = IPAddress.objects.get_or_create(
-                                address=interf.get('ip_address'),
-                                parent=nautobot_prefix,
-                                defaults=defaults,
-                                )
-                            interf["ip_address"] = address
-                        except Exception as exc:
-                            print(f"{exc}")
-                            interf.pop("ip_address")
+                        if nautobot_prefix:
+
+                            try:
+                                address = IPAddress.objects.get(address=interf.get('ip_address'))
+                            except IPAddress.DoesNotExist:
+                                defaults = {"status": ip_status,
+                                                "type": "host"}
+                                try:
+                                    address, created = IPAddress.objects.get_or_create(
+                                        address=interf.get('ip_address'),
+                                        parent=nautobot_prefix,
+                                        defaults=defaults,
+                                        )
+                                except:
+                                    interf.pop("ip_address")
+                            if address:    
+                                interf["ip_address"] = address                        
                     interfaces.append(interf)
                 device.interfaces = interfaces
-                                                
+
     def ensure_version(self):
         if SoftwareLCM is not None:
             relationship=Relationship.objects.get(key='device_soft')

@@ -22,7 +22,6 @@ class NautobotNetworkDiscoveryConfig(NautobotAppConfig):
     default_settings = {
         "default_device_role": "network",
         "default_device_role_color": "ff0000",
-        #"default_management_interface": "PLACEHOLDER",
         "default_device_status": "Active",
         "default_ip_status": "Active",
         "default_ipam_namespace" : "Global",

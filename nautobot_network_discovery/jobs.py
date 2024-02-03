@@ -67,12 +67,6 @@ class NetworkDiscoveryTask(Job):  # pylint: disable=too-many-instance-attributes
         description="Device type. Define ONLY to override auto-recognition of type.",
     )
 
-    """continue_on_failure = BooleanVar(
-        label="Continue On Failure",
-        default=True,
-        description="If an exception occurs, log the exception and continue to next device.",
-    )"""
-
     discovery_type = ChoiceVar(
         description="Discovery mode",
         label="Discovery Mode",
