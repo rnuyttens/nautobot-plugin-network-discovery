@@ -406,7 +406,7 @@ class NautobotPublish:
                         relationship=Relationship.objects.get(key='vlan')
                     except:
                         relationship=None
-                    if relationship is None:
+                    if relationship is not None:
                         for vl in vlans:
                             presence=False
                             for vlan in RelationshipAssociation.objects.all():
