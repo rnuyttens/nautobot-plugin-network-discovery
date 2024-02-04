@@ -316,14 +316,18 @@ class NautobotPublish:
                                     defaults['untagged_vlan']=vlan
                                     break                               
                         elif interf.get('mode') == "tagged":
-                            if interf.get('untagged_vlan') is not None and interf.get('untagged_vlan') != "" and isinstance(interf.get('untagged_vlan'),VLAN):
+                            if interf.get('untagged_vlan') is not None and interf.get('untagged_vlan') != "" :
                                 for vlan in device.vlans:
                                     if vlan.vid == int(interf.get('untagged_vlan')): 
                                         defaults['untagged_vlan']=vlan
                                         break     
                         elif interf.get('mode') == "tagged-all":
-                            if interf.get('untagged_vlan') is not None and isinstance(interf.get('untagged_vlan'),VLAN):
-                                defaults['untagged_vlan'] = interf.get('untagged_vlan')
+                            if interf.get('untagged_vlan') is not None and interf.get('untagged_vlan') != "" :
+                                for vlan in device.vlans:
+                                    if vlan.vid == int(interf.get('untagged_vlan')): 
+                                        defaults['untagged_vlan']=vlan
+                                        break     
+
                         interface, create = Interface.objects.update_or_create(
                             name=interf.get('name'),
                             device=device.device,
@@ -371,7 +375,7 @@ class NautobotPublish:
                                         i.delete()
                                 interface.full_clean()
                                 interface.save()
-                            if interf.get('vrf') is not None and interf.get('vrf') != "":
+                            if interf.get('vrf') is not None and isinstance(interf.get('vrf'),VRF):
                                 interface.vrf = interf.get('vrf')
                                 interface.full_clean()
                                 interface.save()
@@ -409,8 +413,8 @@ class NautobotPublish:
                     if relationship is not None:
                         for vl in vlans:
                             presence=False
-                            for vlan in RelationshipAssociation.objects.all():
-                                if vlan.relationship.key == "vlan":
+                            if len(RelationshipAssociation.objects.filter(relationship=relationship,destination_id=device.device.id))>0:
+                                for vlan in RelationshipAssociation.objects.filter(relationship=relationship,destination_id=device.device.id):
                                     if vlan.destination == device.device and vlan.source == vl:
                                         presence = True
                                         break
@@ -420,9 +424,8 @@ class NautobotPublish:
                                                                                 source=vl,
                                                                                 destination=device.device
                                                                             )
-                        
-                        for vlan in RelationshipAssociation.objects.all():
-                            if vlan.relationship.key == "vlan":
+                        if len(RelationshipAssociation.objects.filter(relationship=relationship,destination_id=device.device.id))>0:
+                            for vlan in RelationshipAssociation.objects.filter(relationship=relationship,destination_id=device.device.id):
                                 if vlan.destination == device.device and vlan.source not in vlans:
                                     vlan.delete()
 
@@ -441,7 +444,7 @@ class NautobotPublish:
                             name=vrf.get('vrf'),
                             defaults={
                                         "rd": vrf.get('rd') , 
-                                        "namespace": Namespace.objects.get(name=PLUGIN_SETTINGS["default_ipam_namespace"]),
+                                        "namespace": Namespace.objects.get(name=device.namespace),
                                     },
                         )
                         vrfs.append(vrf_nb)
@@ -468,7 +471,7 @@ class NautobotPublish:
 
 
     def ensure_ipaddress(self):
-        namespace = Namespace.objects.get(name=PLUGIN_SETTINGS["default_ipam_namespace"])
+        
         default_status_name = PLUGIN_SETTINGS["default_ip_status"]
         try:
             ip_status = Status.objects.get(name=default_status_name)
@@ -478,6 +481,7 @@ class NautobotPublish:
             ) from err
         for device in self.devices_list:
             if ( device.nautobot_serialize().get('interfaces') is not None ) :
+                namespace = Namespace.objects.get(name=device.namespace)
                 interfaces=[]
                 # TODO: Add option for default interface status
                 for interf in device.nautobot_serialize().get('interfaces'):
@@ -586,15 +590,16 @@ class NautobotPublish:
                         )
                         presence=False
                         change_version=False
-                        for version in RelationshipAssociation.objects.all():
-                            if version.relationship.key == "device_soft":
-                                if version.destination == device.device and version.source == ver:
-                                    presence = True
-                                    break
-                                elif version.destination == device.device:
-                                    version.delete()
-                                    change_version=True
-                                    break
+                        if len(RelationshipAssociation.objects.filter(relationship=relationship,destination_id=device.device.id))>0:
+                            for version in RelationshipAssociation.objects.filter(relationship=relationship,destination_id=device.device.id):
+                                if version.relationship.key == "device_soft":
+                                    if version.destination == device.device and version.source == ver:
+                                        presence = True
+                                        break
+                                    elif version.destination == device.device:
+                                        version.delete()
+                                        change_version=True
+                                        break
                         if presence is False or change_version is True :
                             asso = RelationshipAssociation.objects.create(
                                                                             relationship=relationship,

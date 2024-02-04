@@ -34,7 +34,10 @@ class DeviceDiscovery:
                     platform = "autodetect",
                     hostname = None,
                     secrets_group = None,
-                    logger= None
+                    namespace=PLUGIN_SETTINGS["default_ipam_namespace"],
+                    logger= None,
+                    
+
                 ):
 
 
@@ -60,6 +63,7 @@ class DeviceDiscovery:
         self.remote_session = None
         self.commands = None
         self.logger = logger
+        self.namespace=namespace
 
     def connection(self):
         if self.role not in PLUGIN_SETTINGS["deny_role_scan"]:

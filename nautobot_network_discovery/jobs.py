@@ -18,7 +18,7 @@ from nautobot.extras.choices import (
     SecretsGroupSecretTypeChoices,
 )
 from nautobot.extras.models import Role, SecretsGroup, SecretsGroupAssociation
-
+from nautobot.ipam.models import Namespace
 from nautobot_network_discovery.exceptions import OnboardException
 from nautobot_network_discovery.helpers import onboarding_task_fqdn_to_ip
 from nautobot_network_discovery.network_discovery.collector import discovery_devices
@@ -66,7 +66,12 @@ class NetworkDiscoveryTask(Job):  # pylint: disable=too-many-instance-attributes
         required=False,
         description="Device type. Define ONLY to override auto-recognition of type.",
     )
-
+    namespace = ObjectVar(
+        model=Namespace,
+        label="Namespace",
+        required=False,
+        description="Namespace use for discovery",
+    )
     discovery_type = ChoiceVar(
         description="Discovery mode",
         label="Discovery Mode",
@@ -99,6 +104,7 @@ class NetworkDiscoveryTask(Job):  # pylint: disable=too-many-instance-attributes
         self.device_type = None
         self.role = None
         self.discovery_type = None
+        self.namespace = None
         super().__init__(*args, **kwargs)
 
     def run(self, *args, **data):
@@ -111,6 +117,7 @@ class NetworkDiscoveryTask(Job):  # pylint: disable=too-many-instance-attributes
         self.device_type = data["device_type"]
         self.role = data["role"]
         self.discovery_type=data["discovery_type"]
+        self.namespace=data["namespace"]
 
         self.logger.info("START: onboarding devices")
         # allows for itteration without having to spawn multiple jobs
@@ -157,6 +164,8 @@ class NetworkDiscoveryTask(Job):  # pylint: disable=too-many-instance-attributes
                 device_data["platform"] = self.platform.network_driver   
             if self.secrets_group is not None:
                 device_data["secrets_group"] = self.secrets_group  
+            if self.namespace is not None:
+                device_data["namespace"] = self.namespace.name  
 
             device = DeviceDiscovery(**device_data)
 
@@ -188,6 +197,8 @@ class NetworkDiscoveryTask(Job):  # pylint: disable=too-many-instance-attributes
                 device_data["platform"] = self.platform.network_driver   
             if self.secrets_group is not None:
                 device_data["secrets_group"] = self.secrets_group 
+            if self.namespace is not None:
+                device_data["namespace"] = self.namespace.name 
 
             device = DeviceDiscovery(**device_data)
             device.connection()
