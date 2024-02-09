@@ -413,8 +413,8 @@ class NautobotPublish:
                     if relationship is not None:
                         for vl in vlans:
                             presence=False
-                            if len(RelationshipAssociation.objects.filter(relationship=relationship,destination_id=device.device.id))>0:
-                                for vlan in RelationshipAssociation.objects.filter(relationship=relationship,destination_id=device.device.id):
+                            if len(RelationshipAssociation.objects.filter(relationship=relationship,source_id=vl.id,destination_id=device.device.id))>0:
+                                for vlan in RelationshipAssociation.objects.filter(relationship=relationship,source_id=vl.id,destination_id=device.device.id):
                                     if vlan.destination == device.device and vlan.source == vl:
                                         presence = True
                                         break
