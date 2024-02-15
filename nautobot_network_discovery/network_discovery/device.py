@@ -1,5 +1,4 @@
 """device.py"""
-import logging
 import os
 from importlib import import_module
 
@@ -27,17 +26,13 @@ class DeviceDiscovery:
                     password= None,
                     secret = None,
                     discovery_type= None,
-                    location=None,
                     role=PLUGIN_SETTINGS["default_device_role"],
                     manufacturer= str(os.getenv("DEFAULT_MANUFACTURER","Generic")),
                     model= str(os.getenv("DEFAULT_MODEL","Generic")),
                     platform = "autodetect",
                     hostname = None,
                     secrets_group = None,
-                    namespace=PLUGIN_SETTINGS["default_ipam_namespace"],
                     logger= None,
-                    
-
                 ):
 
 
@@ -50,7 +45,6 @@ class DeviceDiscovery:
         self.secret=secret
         self.platform = platform
         self.discovery_type = discovery_type
-        self.location = location
         self.manufacturer = manufacturer
         self.model = model
         self.role = role
@@ -63,8 +57,8 @@ class DeviceDiscovery:
         self.remote_session = None
         self.commands = None
         self.logger = logger
-        self.namespace=namespace
 
+        
     def connection(self):
         if self.role not in PLUGIN_SETTINGS["deny_role_scan"]:
             ssh_profile = {

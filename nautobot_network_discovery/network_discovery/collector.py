@@ -150,7 +150,10 @@ def discovery_devices(
                         logger,
                         lock=None ,
                         queue:LifoQueue | None = None,
-                        device:DeviceDiscovery | None = None
+                        device:DeviceDiscovery | None = None,
+                        location:str | None = None,
+                        namespace:str | None = None,
+                        tenant=None,
                       ):
     
     all_devices = []
@@ -183,4 +186,4 @@ def discovery_devices(
         collect_data(device)
         all_devices.append(device)
 
-    NautobotPublish(logger,all_devices)
+    NautobotPublish(logger,all_devices,location,namespace,tenant)

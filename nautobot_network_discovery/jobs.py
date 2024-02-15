@@ -19,6 +19,7 @@ from nautobot.extras.choices import (
 )
 from nautobot.extras.models import Role, SecretsGroup, SecretsGroupAssociation
 from nautobot.ipam.models import Namespace
+from nautobot.tenancy.models import Tenant
 from nautobot_network_discovery.exceptions import OnboardException
 from nautobot_network_discovery.helpers import onboarding_task_fqdn_to_ip
 from nautobot_network_discovery.network_discovery.collector import discovery_devices
@@ -72,6 +73,12 @@ class NetworkDiscoveryTask(Job):  # pylint: disable=too-many-instance-attributes
         required=False,
         description="Namespace use for discovery",
     )
+    tenant = ObjectVar(
+        model=Tenant,
+        label="Tenant",
+        required=False,
+        description="Tenant use for discovery",
+    )
     discovery_type = ChoiceVar(
         description="Discovery mode",
         label="Discovery Mode",
@@ -105,6 +112,7 @@ class NetworkDiscoveryTask(Job):  # pylint: disable=too-many-instance-attributes
         self.role = None
         self.discovery_type = None
         self.namespace = None
+        self.tenant = None
         super().__init__(*args, **kwargs)
 
     def run(self, *args, **data):
@@ -118,6 +126,7 @@ class NetworkDiscoveryTask(Job):  # pylint: disable=too-many-instance-attributes
         self.role = data["role"]
         self.discovery_type=data["discovery_type"]
         self.namespace=data["namespace"]
+        self.tenant=data["tenant"]
 
         self.logger.info("START: onboarding devices")
         # allows for itteration without having to spawn multiple jobs
@@ -138,71 +147,53 @@ class NetworkDiscoveryTask(Job):  # pylint: disable=too-many-instance-attributes
         """Onboard single device."""
         self.logger.info("Attempting to onboard %s.", address)
         address = onboarding_task_fqdn_to_ip(address)
+        
+            
+
+        device_data = {
+            "host": address,
+            "port": self.port,
+            "timeout": self.timeout,
+            "discovery_type": self.discovery_type,
+            "logger": self.logger
+            }
+        if self.username is not None:
+            device_data["username"] = self.username
+        if self.password is not None:
+            device_data["password"] = self.password
+        if self.password is not None:
+            device_data["secret"] = self.secret 
+        if self.role is not None:
+            device_data["role"] = self.role.name   
+        if self.device_type is not None:
+            device_data["device_type"] = self.device_type.model   
+        if self.platform is not None:
+            device_data["platform"] = self.platform.network_driver   
+        if self.secrets_group is not None:
+            device_data["secrets_group"] = self.secrets_group  
+
+        if self.namespace is not None:
+            namespace = self.namespace.name  
+        else:
+            namespace=PLUGIN_SETTINGS["default_ipam_namespace"]
+        if self.tenant is not None:
+            tenant = self.tenant.name  
+        else:
+            tenant=None
+
         if self.discovery_type == 'lldp':
             self.logger.info("Start LLDP Discovery")
             mutex = Lock()
             queue=LifoQueue()
-            device_data = {
-                "host": address,
-                "port": self.port,
-                "timeout": self.timeout,
-                "discovery_type": self.discovery_type,
-                "location": self.location.name,
-                "logger": self.logger
-                }
-            if self.username is not None:
-                device_data["username"] = self.username
-            if self.password is not None:
-                device_data["password"] = self.password
-            if self.password is not None:
-                device_data["secret"] = self.secret 
-            if self.role is not None:
-                device_data["role"] = self.role.name   
-            if self.device_type is not None:
-                device_data["device_type"] = self.device_type.model   
-            if self.platform is not None:
-                device_data["platform"] = self.platform.network_driver   
-            if self.secrets_group is not None:
-                device_data["secrets_group"] = self.secrets_group  
-            if self.namespace is not None:
-                device_data["namespace"] = self.namespace.name  
-
             device = DeviceDiscovery(**device_data)
-
-
             neighbors_discovery = Thread(target=NeighborsDiscovery,kwargs={"logger" :self.logger,"device":device,"lock":mutex,"queue":queue},name = "PUBLISH_THREAD")
             neighbors_discovery.start()
-            discovery_devices(logger=self.logger,lock=mutex,queue=queue)
+            discovery_devices(logger=self.logger,lock=mutex,queue=queue,location=self.location.name,namespace=namespace,tenant=tenant)
         else:
             self.logger.info(f"Start Discovery for {address}")
-            device_data = {
-                "host":address,
-                "port":self.port,
-                "timeout":self.timeout,
-                "discovery_type":self.discovery_type,
-                "location":self.location.name,
-                "logger" :self.logger
-                }
-            if self.username is not None:
-                device_data["username"] = self.username
-            if self.password is not None:
-                device_data["password"] = self.password
-            if self.password is not None:
-                device_data["secret"] = self.secret 
-            if self.role is not None:
-                device_data["role"] = self.role.name   
-            if self.device_type is not None:
-                device_data["model"] = self.device_type.model   
-            if self.platform is not None:
-                device_data["platform"] = self.platform.network_driver   
-            if self.secrets_group is not None:
-                device_data["secrets_group"] = self.secrets_group 
-            if self.namespace is not None:
-                device_data["namespace"] = self.namespace.name 
-
             device = DeviceDiscovery(**device_data)
             device.connection()
-            discovery_devices(logger=self.logger,device=device)
+            discovery_devices(logger=self.logger,device=device,location=self.location.name,namespace=namespace,tenant=tenant)
 
 
         self.logger.info(

@@ -123,13 +123,12 @@ class NeighborsDiscovery:
                                                 password=device.password,
                                                 secret=device.secret,
                                                 discovery_type='lldp',
-                                                location=device.location,
                                                 role=role(discovery_device),
                                                 platform=lldp_autodetect(discovery_device),
                                                 manufacturer=manufacturer(discovery_device,lldp_autodetect(discovery_device)),
                                                 hostname=discovery_device.get('neighbor'),
                                                 secrets_group=device.secrets_group,
-                                                namespace=device.namespace
+
                                             )
                     
                     self.logger.info(f"New device found: {dev.hostname}")

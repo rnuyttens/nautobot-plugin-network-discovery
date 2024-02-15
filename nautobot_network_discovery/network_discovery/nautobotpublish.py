@@ -1,10 +1,8 @@
 import ipaddress
-import logging
 import random
 
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
-from django.core.exceptions import ValidationError
 from nautobot.apps.choices import PrefixTypeChoices
 from nautobot.dcim.models import (
     Device,
@@ -29,7 +27,7 @@ from nautobot.ipam.models import (
     Prefix
 )
 
-
+from nautobot.tenancy.models import Tenant
 from nautobot_network_discovery.exceptions import OnboardException
 
 if "nautobot_device_lifecycle_mgmt" in settings.PLUGINS:
@@ -79,12 +77,14 @@ def object_match(obj, search_array):
 
 
 class NautobotPublish:
-    def __init__(self,logger,devices):
+    def __init__(self,logger,devices,location,namespace,tenant):
         self.logger = logger
         self.devices_list = devices
         self.updated_devices=[]
         self.created_devices=[]        
-        self.ensure_device_site()
+        self.ensure_device_site(location)
+        self.ensure_namespace(namespace)
+        self.ensure_tenant(tenant)
         self.ensure_device_manufacturer()
         self.ensure_device_platform()
         self.ensure_device_device_type()
@@ -98,13 +98,32 @@ class NautobotPublish:
 
         logger.info(f"{len(self.created_devices)} new devices add in Nautobot, {len(self.updated_devices)} updated devices add in Nautobot")
 
-    def ensure_device_site(self):
+    def ensure_device_site(self,location):
         """Ensure device's site."""
-        for device in self.devices_list:
+        try:
+            self.location = Location.objects.get(name=location)
+        except Location.DoesNotExist as err:
+            raise OnboardException(f"fail-config - Site not found: {location}") from err
+
+    def ensure_namespace(self,namespace):
+        """Ensure Namespace."""
+        try:
+            self.namespace = Namespace.objects.get(name=namespace)
+        except Namespace.DoesNotExist as err:
+            raise OnboardException(f"fail-config - Namespace not found: {namespace}") from err
+
+    def ensure_tenant(self,tenant):
+        """Ensure Tenant."""
+        if tenant is not None:
             try:
-                device.location = Location.objects.get(name=device.location)
-            except Location.DoesNotExist as err:
-                raise OnboardException(f"fail-config - Site not found: {device.location}") from err
+                self.tenant = Tenant.objects.get(name=tenant)
+            except Tenant.DoesNotExist as err:
+                self.tenant = None
+                raise OnboardException(f"fail-config - Tenant not found: {tenant}") from err
+        else:
+            self.tenant = None
+
+
 
 
     def ensure_device_manufacturer(self):
@@ -242,7 +261,7 @@ class NautobotPublish:
                     lookup_args = {
                         "name": device.nautobot_serialize().get('device').get('name'),
                         "defaults": {
-                            "location": device.location,
+                            "location": self.location,
                             # `status` field is defined only for new devices, no update for existing should occur
                             "status": device_status,
                         },
@@ -252,9 +271,8 @@ class NautobotPublish:
                     except Device.DoesNotExist:
                         lookup_args["defaults"]["device_type"] = device.device_type
                         lookup_args["defaults"]["role"] = device.role
-                        exist = None
-                    if exist and PLUGIN_SETTINGS['update_device_type_if_device_exist'] is True:
-                        lookup_args["defaults"]["device_type"] = device.device_type
+                        exist = None    
+
                     if exist and PLUGIN_SETTINGS['update_role_if_device_exist'] is True:
                         lookup_args["defaults"]["role"] = device.role
                     if device.secrets_group is not None and device.remote_session is not None:
@@ -263,6 +281,9 @@ class NautobotPublish:
                         lookup_args["defaults"]["serial"] = device.nautobot_serialize().get('device').get('serial')               
                     if isinstance(device.platform, Platform):
                         lookup_args["defaults"]["platform"] = device.platform
+                    if isinstance(self.tenant, Tenant):
+                        lookup_args["defaults"]["tenant"] = self.tenant
+
                 except Exception as err:
                     print(f"Device post failed: {err}")
             try:
@@ -392,13 +413,17 @@ class NautobotPublish:
                 # TODO: Add option for default interface status
                 for vlan in device.nautobot_serialize().get('vlans'):
                     try:
+
+                        defaults={
+                                        "vid": vlan.get('vid') , 
+                                        "location": self.location,
+                                        "status": Status.objects.get(name="Active"),
+                                    }
+                        if isinstance(self.tenant, Tenant):
+                            defaults["tenant"] = self.tenant
                         vl, create = VLAN.objects.get_or_create(
                             name=vlan.get('name'),
-                            defaults={
-                                        "vid": vlan.get('vid') , 
-                                        "location": device.location,
-                                        "status": Status.objects.get(name="Active"),
-                                    },
+                            defaults=defaults
                         )
                         if vl not in vlans:
                             vlans.append(vl)
@@ -440,12 +465,18 @@ class NautobotPublish:
                 # TODO: Add option for default interface status
                 for vrf in device.nautobot_serialize().get('vrfs'):
                     try:
+                        defaults={
+                                        "rd": vrf.get('rd') , 
+                                        "namespace": self.namespace,
+                                    }
+                        if isinstance(self.tenant, Tenant):
+                            defaults["tenant"] = self.tenant
+
+
+                        
                         vrf_nb, _ = VRF.objects.get_or_create(
                             name=vrf.get('vrf'),
-                            defaults={
-                                        "rd": vrf.get('rd') , 
-                                        "namespace": Namespace.objects.get(name=device.namespace),
-                                    },
+                            defaults=defaults,
                         )
                         vrfs.append(vrf_nb)
                         if vrf_nb not in device.device.vrfs.all():
@@ -481,21 +512,28 @@ class NautobotPublish:
             ) from err
         for device in self.devices_list:
             if ( device.nautobot_serialize().get('interfaces') is not None ) :
-                namespace = Namespace.objects.get(name=device.namespace)
                 interfaces=[]
                 # TODO: Add option for default interface status
                 for interf in device.nautobot_serialize().get('interfaces'):
                     try:
                         if device.remote_session is not None and interf.get('ip_address') is not None and interf.get('ip_address') !="":
                             prefix = ipaddress.ip_interface(interf.get('ip_address'))
+
+
+                            defaults={"status": ip_status}
+                            if isinstance(self.tenant, Tenant):
+                                defaults["tenant"] = self.tenant                            
+                            
                             nautobot_prefix, _ = Prefix.objects.get_or_create(
                                 prefix=f"{prefix.network}",
-                                namespace=namespace,
+                                namespace=self.namespace,
                                 type=PrefixTypeChoices.TYPE_NETWORK,
-                                defaults={"status": ip_status},
+                                defaults=defaults,
                                 )
                             defaults = {"status": ip_status,
                                            "type": "host"}
+                            if isinstance(self.tenant, Tenant):
+                                defaults["tenant"] = self.tenant  
                             address, created = IPAddress.objects.get_or_create(
                                 address=interf.get('ip_address'),
                                 parent=nautobot_prefix,
@@ -510,16 +548,23 @@ class NautobotPublish:
                         if interf.get('vip') is not None and interf.get('vip') !="":
                             prefix = ipaddress.ip_interface(interf.get('vip'))
                             role = Role.objects.get(name="VIP")
+
+                            defaults={"status": ip_status}
+                            if isinstance(self.tenant, Tenant):
+                                defaults["tenant"] = self.tenant   
+
                             nautobot_prefix, _ = Prefix.objects.get_or_create(
                                 prefix=f"{prefix.network}",
-                                namespace=namespace,
+                                namespace=self.namespace,
                                 type=PrefixTypeChoices.TYPE_NETWORK,
-                                defaults={"status": ip_status},
+                                defaults=defaults,
                                 )
                             defaults = {"status": ip_status,
                                         "type": "host",
                                         "role": role
                                         }
+                            if isinstance(self.tenant, Tenant):
+                                defaults["tenant"] = self.tenant   
                             address, created = IPAddress.objects.get_or_create(
                                 address=interf.get('vip'),
                                 parent=nautobot_prefix,
@@ -548,11 +593,15 @@ class NautobotPublish:
                                     break
                         else:
                             pref = ipaddress.ip_interface(interf.get('ip_address'))
+
+                            defaults={"status": ip_status}
+                            if isinstance(self.tenant, Tenant):
+                                defaults["tenant"] = self.tenant   
                             nautobot_prefix, _ = Prefix.objects.get_or_create(
                                 prefix=f"{pref.network}",
-                                namespace=namespace,
+                                namespace=self.namespace,
                                 type=PrefixTypeChoices.TYPE_NETWORK,
-                                defaults={"status": ip_status},
+                                defaults=defaults,
                                 )
                         if nautobot_prefix:
 
@@ -561,6 +610,8 @@ class NautobotPublish:
                             except IPAddress.DoesNotExist:
                                 defaults = {"status": ip_status,
                                                 "type": "host"}
+                                if isinstance(self.tenant, Tenant):
+                                    defaults["tenant"] = self.tenant  
                                 try:
                                     address, created = IPAddress.objects.get_or_create(
                                         address=interf.get('ip_address'),
