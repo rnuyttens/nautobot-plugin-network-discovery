@@ -21,6 +21,7 @@ It's a Nautobot jobs for network discovery, the job connects to the equipment an
 		- MTU
 		- MAC Address
 		- VRF
+  		- Interface Redundancy Group (HSRP only)
 
 
 
