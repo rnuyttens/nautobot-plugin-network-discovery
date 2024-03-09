@@ -128,7 +128,7 @@ def collect_data(device):
                                 if len(data.get(mapkeys)) == 0 :
                                     if hasattr(device,k) is True and getattr(device,k) != "" and k == "interface":
                                         interface = default_interface(getattr(device,k))
-                                        interface[0]['ip_address'] = f"{device.ip}/32"
+                                        interface[0]['ip_address'] = f"{device.ip}"
                                         data[mapkeys] = interface
                         except Exception as exc:
                             print(f"{exc}")

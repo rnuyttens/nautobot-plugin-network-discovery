@@ -8,6 +8,7 @@ MAPPING_VALUES = {
             'duplex': 'duplex',
             'interface': 'name',
             'ip_address': 'ip_address',
+            "prefix_length": "prefix_length",
             'link_status': 'enabled',
             'mac_address': 'mac_address',
             'mtu': 'mtu',
@@ -24,7 +25,10 @@ MAPPING_VALUES = {
             "vrf": "vrf"
         },
         "vip" :{
-            "virtual_ip": "vip"
+            "virtual_ip": "vip",
+            "priority": "vip_priority",
+            "group_name": "vip_group_name",
+            "group": "protocol_group_id"
         }
     },
     "vlans" : {

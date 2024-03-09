@@ -8,6 +8,8 @@ from nautobot.dcim.models import (
     Device,
     DeviceType,
     Interface,
+    InterfaceRedundancyGroup,
+    InterfaceRedundancyGroupAssociation,
     Location,
     Manufacturer,
     Platform,
@@ -95,6 +97,7 @@ class NautobotPublish:
         self.ensure_vrf()
         self.ensure_ipaddress()
         self.ensure_interface()
+        self.ensure_interface_redundancy_group()
 
         logger.info(f"{len(self.created_devices)} new devices add in Nautobot, {len(self.updated_devices)} updated devices add in Nautobot")
 
@@ -187,7 +190,7 @@ class NautobotPublish:
                             
                 except DeviceType.DoesNotExist as err:
                         device.device_type = DeviceType.objects.create(
-                                                                        model=device.nautobot_serialize().get('device').get('device_type'),
+                                                                       model=device.nautobot_serialize().get('device').get('device_type'),
                                                                         manufacturer=device.manufacturer
                                                                         )
             else:
@@ -208,7 +211,7 @@ class NautobotPublish:
                                                                             manufacturer=device.manufacturer
                                                                             )
                 except Exception as exc: 
-                    print(exc)
+                    self.logger.error(exc)
 
         
     def ensure_device_role(self,default_role=PLUGIN_SETTINGS["default_device_role"],default_color=PLUGIN_SETTINGS["default_device_role_color"]):
@@ -285,7 +288,7 @@ class NautobotPublish:
                         lookup_args["defaults"]["tenant"] = self.tenant
 
                 except Exception as err:
-                    print(f"Device post failed: {err}")
+                    self.logger.error(f"Device post failed: {err}")
             try:
                 if lookup_args is not None:
                     device.device, created = Device.objects.update_or_create(**lookup_args)
@@ -331,7 +334,7 @@ class NautobotPublish:
                             defaults['mode'] = interf.get('mode') 
                         if (interf.get('mode') == "access" and hasattr(device, "vlans") and 
                             interf.get('untagged_vlan') is not None and 
-                            interf.get('untagged_vlan') != ""):
+                            interf.get('untagged_vlan') != "" and interf.get('untagged_vlan')!= "unassigned"):
                             for vlan in device.vlans:
                                 if vlan.vid == int(interf.get('untagged_vlan')): 
                                     defaults['untagged_vlan']=vlan
@@ -381,10 +384,7 @@ class NautobotPublish:
                                 if str(ip_interface) == str(device.ip):
                                     device.device.primary_ip4 = interf.get('ip_address')
                                     device.device.save()
-                            if interf.get('vip') is not None and interf.get('vip') != "" :
-                                interface.ip_addresses.add(interf.get('vip'))
-                                interface.full_clean()
-                                interface.save()
+
                             if len(interface.ip_addresses.all()) > 0:
                                 for i in interface.ip_addresses.all():
                                     present = False
@@ -400,10 +400,11 @@ class NautobotPublish:
                                 interface.vrf = interf.get('vrf')
                                 interface.full_clean()
                                 interface.save()
-                        interfaces.append(interface)
+                            interf["interface"]=interface
+                            interfaces.append(interf)
                     except Exception as exc:
-                        print(f"failed for interface {interf} on device {device.device.name} : {exc}")
-
+                        self.logger.error(f"failed for interface {interf} on device {device.device.name} : {exc}")
+                device.interfaces=interfaces
 
 
     def ensure_vlan(self):
@@ -425,10 +426,12 @@ class NautobotPublish:
                             name=vlan.get('name'),
                             defaults=defaults
                         )
+                        if create is True:
+                            self.logger.info(f"{vl.name} add in Nautobot for location: {self.location.name}")
                         if vl not in vlans:
                             vlans.append(vl)
                     except Exception as exc:
-                        print(exc)
+                        self.logger.error(exc)
 
                 if len(vlans)>0:
                     try:
@@ -482,7 +485,7 @@ class NautobotPublish:
                         if vrf_nb not in device.device.vrfs.all():
                             vrf_nb.add_device(device.device)
                     except Exception as exc:
-                        print(exc)
+                        self.logger.error(exc)
                 for vrf in device.device.vrfs.all():
                     if vrf not in vrfs:
                         vrf.remove_device(device.device)
@@ -496,7 +499,7 @@ class NautobotPublish:
                                     interf["vrf"] = vrf
                         
                             except Exception as exc:
-                                print(exc)
+                                self.logger.error(exc)
                         interfaces.append(interf)
                     device.interfaces = interfaces
 
@@ -511,15 +514,19 @@ class NautobotPublish:
                 f"fail-general - ERROR could not find existing IP Address status: {default_status_name}",
             ) from err
         for device in self.devices_list:
-            if ( device.nautobot_serialize().get('interfaces') is not None ) :
+            if ( device.remote_session is not None and device.nautobot_serialize().get('interfaces') is not None ) :
                 interfaces=[]
                 # TODO: Add option for default interface status
                 for interf in device.nautobot_serialize().get('interfaces'):
                     try:
-                        if device.remote_session is not None and interf.get('ip_address') is not None and interf.get('ip_address') !="":
-                            prefix = ipaddress.ip_interface(interf.get('ip_address'))
-
-
+                        if ( device.remote_session is not None and 
+                            interf.get('ip_address') is not None and 
+                            interf.get('ip_address') !="" and 
+                            interf.get('prefix_length') is not None and 
+                            interf.get('prefix_length') != ""
+                            ):
+                            prefix = ipaddress.ip_interface(f"{interf.get('ip_address')}/{interf.get('prefix_length')}")
+                            
                             defaults={"status": ip_status}
                             if isinstance(self.tenant, Tenant):
                                 defaults["tenant"] = self.tenant                            
@@ -530,35 +537,33 @@ class NautobotPublish:
                                 type=PrefixTypeChoices.TYPE_NETWORK,
                                 defaults=defaults,
                                 )
+                            
                             defaults = {"status": ip_status,
                                            "type": "host"}
                             if isinstance(self.tenant, Tenant):
                                 defaults["tenant"] = self.tenant  
                             address, created = IPAddress.objects.get_or_create(
-                                address=interf.get('ip_address'),
+                                address=f"{interf.get('ip_address')}/{interf.get('prefix_length')}",
                                 parent=nautobot_prefix,
                                 defaults=defaults,
                                 )
                             
                             interf["ip_address"] = address
                     except Exception as exc:
-                        print(f"{device.device.name} : {interf.get('ip_address')} : {exc}")
+                        self.logger.error(f"{device.device.name} : {interf.get('ip_address')}/{interf.get('prefix_length')} : {exc}")
                         interf.pop("ip_address")
-                    try:
-                        if interf.get('vip') is not None and interf.get('vip') !="":
-                            prefix = ipaddress.ip_interface(interf.get('vip'))
-                            role = Role.objects.get(name="VIP")
 
+                    try:
+                        if ( device.remote_session is not None and 
+                            interf.get('vip') is not None and 
+                            interf.get('vip') !="" and 
+                            interf.get('prefix_length') is not None and 
+                            interf.get('prefix_length') != "" 
+                            ):
+                            role = Role.objects.get(name="VIP")
                             defaults={"status": ip_status}
                             if isinstance(self.tenant, Tenant):
                                 defaults["tenant"] = self.tenant   
-
-                            nautobot_prefix, _ = Prefix.objects.get_or_create(
-                                prefix=f"{prefix.network}",
-                                namespace=self.namespace,
-                                type=PrefixTypeChoices.TYPE_NETWORK,
-                                defaults=defaults,
-                                )
                             defaults = {"status": ip_status,
                                         "type": "host",
                                         "role": role
@@ -566,34 +571,33 @@ class NautobotPublish:
                             if isinstance(self.tenant, Tenant):
                                 defaults["tenant"] = self.tenant   
                             address, created = IPAddress.objects.get_or_create(
-                                address=interf.get('vip'),
+                                address=f"{interf.get('vip')}/{interf.get('prefix_length')}",
                                 parent=nautobot_prefix,
                                 defaults=defaults,
                                 )
                             interf["vip"] = address
-                    except Exception as exc:
+
+                    except Exception as exc:                        
+                        self.logger.error(f"{device.device.name} : VIP {interf.get('vip')} : {exc}")
                         interf.pop("vip")
-                        print(f"{device.device.name} : {interf.get('vip')} : {exc}")
+
                     interfaces.append(interf)
                 device.interfaces = interfaces
+
 
         for device in self.devices_list:
             if device.remote_session is None and device.nautobot_serialize().get('interfaces') is not None :
                 interfaces=[]
                 for interf in device.nautobot_serialize().get('interfaces'):
-                    if interf.get('ip_address') is not None and interf.get('ip_address') !="":
-                        prefix_found=[]
-                        for pref in Prefix.objects.all():
-                            if ipaddress.ip_interface(interf.get('ip_address')) in ipaddress.ip_network(f"{pref.network}/{pref.prefix_length}"):
-                                prefix_found.append(pref)
-                        if len(prefix_found)>0:
-                            for pref in prefix_found:
-                                if len(pref.subnets()) == 0:
-                                    nautobot_prefix =pref
-                                    break
+                    if interf.get('ip_address') is not None and interf.get('ip_address') !="" :
+                        prefix_found=Prefix.objects.net_contains(interf.get('ip_address'))
+                        if len(prefix_found) >0:
+                            #use first prefix found
+                            for prefix in prefix_found:
+                                nautobot_prefix=prefix
+                                break
                         else:
-                            pref = ipaddress.ip_interface(interf.get('ip_address'))
-
+                            pref = ipaddress.ip_interface(f"{interf.get('ip_address')}")
                             defaults={"status": ip_status}
                             if isinstance(self.tenant, Tenant):
                                 defaults["tenant"] = self.tenant   
@@ -604,24 +608,20 @@ class NautobotPublish:
                                 defaults=defaults,
                                 )
                         if nautobot_prefix:
-
+                            defaults = {"status": ip_status,
+                                            "type": "host"}
+                            if isinstance(self.tenant, Tenant):
+                                defaults["tenant"] = self.tenant  
                             try:
-                                address = IPAddress.objects.get(address=interf.get('ip_address'))
-                            except IPAddress.DoesNotExist:
-                                defaults = {"status": ip_status,
-                                                "type": "host"}
-                                if isinstance(self.tenant, Tenant):
-                                    defaults["tenant"] = self.tenant  
-                                try:
-                                    address, created = IPAddress.objects.get_or_create(
-                                        address=interf.get('ip_address'),
-                                        parent=nautobot_prefix,
-                                        defaults=defaults,
-                                        )
-                                except:
-                                    interf.pop("ip_address")
-                            if address:    
-                                interf["ip_address"] = address                        
+                                address, created = IPAddress.objects.get_or_create(
+                                    address=f"{interf.get('ip_address')}/{nautobot_prefix.prefix_length}",
+                                    parent=nautobot_prefix,
+                                    defaults=defaults,
+                                    )
+                                interf["ip_address"] = address  
+                            except Exception as exc:
+                                self.logger.error(f"failed to post {interf.get('ip_address')}/{nautobot_prefix.prefix_length}, reason: {exc}")
+                                interf.pop("ip_address")
                     interfaces.append(interf)
                 device.interfaces = interfaces
 
@@ -659,3 +659,43 @@ class NautobotPublish:
                                                                         ) 
                     except Exception as exc:
                         print(f"Version: {device.device.name} : {ver}  {exc}")
+
+    def ensure_interface_redundancy_group(self):
+        
+        default_status_name = PLUGIN_SETTINGS["default_ip_status"]
+        try:
+            ip_status = Status.objects.get(name=default_status_name)
+        except Status.DoesNotExist as err:
+            raise OnboardException(
+                f"fail-general - ERROR could not find existing IP Address status: {default_status_name}",
+            ) from err
+        try:
+            role = Role.objects.get(name="VIP")
+        except Status.DoesNotExist as err:
+            raise OnboardException(
+                f"fail-general - ERROR could not find existing Role: VIP",
+            ) from err
+        for device in self.devices_list:
+            if ( device.nautobot_serialize().get('interfaces') is not None ) :
+                interfaces=[]
+                # TODO: Add option for default interface status
+                for interf in device.nautobot_serialize().get('interfaces'):
+
+                    try:
+                        if interf.get('vip') is not None and isinstance(interf.get('vip'),IPAddress) :
+                            data={
+                                "virtual_ip" : interf.get('vip'),
+                                "name": interf.get('vip_group_name'),
+                                "status": ip_status,
+                                "protocol": "hsrp",
+                                "protocol_group_id": interf.get('protocol_group_id')
+                            }
+                            interface_redundancy,_=InterfaceRedundancyGroup.objects.get_or_create(**data)
+                            interface_redundancy_asso,_ = InterfaceRedundancyGroupAssociation.objects.get_or_create(
+                                interface_redundancy_group=interface_redundancy,
+                                priority=int(interf.get('vip_priority')),
+                                interface=interf.get(("interface"))
+                            )
+                    except Exception as exc:
+                        print(f"{device.device.name} : {interf} : {exc}")
+                

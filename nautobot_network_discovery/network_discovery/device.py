@@ -98,7 +98,7 @@ class DeviceDiscovery:
         if self.platform is not None:
             try:
                 cmd = import_module(f'nautobot_network_discovery.network_discovery.mapper.{self.platform}')
-                self.commands = cmd.COMMANDS
+                self.commands = cmd.COMMANDS          
                 self.remote_session = ConnectHandler(**ssh_profile)
                 self.remote_session.enable()
                 if self.platform == "fortinet" and self.remote_session._vdoms is True:
@@ -152,6 +152,9 @@ class DeviceDiscovery:
             setattr(self, name, data)
     
     def serialize(self):
+        if self.remote_session is not None:
+            self.remote_session = True
+        self.logger =None
         return self.__dict__
     
     def nautobot_serialize(self):

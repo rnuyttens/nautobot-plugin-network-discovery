@@ -74,12 +74,6 @@ def run(interfaces):
                 if len(temp) == 12 :
                     mac = temp[:2] + ":" + ":".join([temp[i] + temp[i+1] for i in range(2,12,2)])
                     interface['mac_address'] = mac
-            if interface.get("ip_address") is not None and interface.get("ip_address") != "" and interface.get("prefix_length") is not None and interface.get("prefix_length") !="":
-                ip = f'{interface.get("ip_address")}/{interface.get("prefix_length")}'
-                interface['ip_address'] = ip
-            if interface.get("ip_address") is not None and interface.get("ip_address") != "" and interface.get("netmask") is not None and interface.get("netmask") !="":
-                ip = f'{interface.get("ip_address")}/{interface.get("netmask")}'
-                interface['ip_address'] = ip   
 
             if interface.get("link_status") is not None and interface.get("link_status") != "" or (interface.get("status") is not None and interface.get("status") != "") :
                 if interface.get("link_status") == 'up' or interface.get("status") == "up":
@@ -124,9 +118,7 @@ def run(interfaces):
                     interface['mode'] = "access"
                     interface['native_vlan'] = ""
 
-            if interface.get('virtual_ip') is not None and interface.get("virtual_ip") != "":
-                if "/" not in interface.get('virtual_ip'):
-                    interface["virtual_ip"] = f"{interface.get('virtual_ip')}/32"
+
     return interfaces
 
 def default_interface(interface):
