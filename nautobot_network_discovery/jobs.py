@@ -57,7 +57,7 @@ class NetworkDiscoveryTask(Job):  # pylint: disable=too-many-instance-attributes
     )
     role = ObjectVar(
         model=Role,
-        query_params={"content_type": "dcim.device"},
+        query_params={"content_types": "dcim.device"},
         required=False,
         description="Device role. Define ONLY to override auto-recognition of role.",
     )
@@ -180,7 +180,6 @@ class NetworkDiscoveryTask(Job):  # pylint: disable=too-many-instance-attributes
             tenant = self.tenant.name  
         else:
             tenant=None
-
         if self.discovery_type == 'lldp':
             self.logger.info("Start LLDP Discovery")
             mutex = Lock()
