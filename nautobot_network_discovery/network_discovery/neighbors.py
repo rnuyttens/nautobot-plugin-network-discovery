@@ -130,7 +130,7 @@ class NeighborsDiscovery:
                                                 secrets_group=device.secrets_group,
 
                                             )
-                    
+                    dev.discovery_device = discovery_device
                     self.logger.info(f"New device found: {dev.hostname}")
 
                     self.ips.append(dev.ip)

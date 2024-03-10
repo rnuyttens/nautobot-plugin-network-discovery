@@ -28,7 +28,7 @@ ROLE_MAP_DICT = {
             ".*firewall.*":"Firewall",
             ".*camera.*" : "Camera",
             ".*ap software.*": "Access Point",
-            ".*ip Phone.*": "Phone",
-            ".*AP3G.*": "Access Point"
+            ".*ip phone.*": "Phone",
+            ".*ap3g.*": "Access Point"
             }
 }
